@@ -1,0 +1,167 @@
+---
+- name: Install Clickhouse
+  hosts: clickhouse
+  become: true
+  become_user:   root
+  handlers:
+    - name: Start clickhouse service
+      become: true
+      ansible.builtin.systemd:
+        name: clickhouse-server
+        state: restarted
+        daemon_reload: yes
+        timeout: 300
+    - name: Ensure systemd is in a clean state
+      ansible.builtin.command: systemctl daemon-reexec
+      become: true
+      changed_when: false
+  tasks:
+    - block:
+
+        - name: Get clickhouse distrib
+          ansible.builtin.get_url:
+            url: "https://packages.clickhouse.com/rpm/lts/{{ item }}-{{ clickhouse_version }}.noarch.rpm"
+            dest: "./{{ item }}-{{ clickhouse_version }}.rpm"
+          #with_items: "{{ clickhouse_packages }}"
+          with_items:
+          - clickhouse-client
+          - clickhouse-server
+
+        - name: Get clickhouse distrib
+          ansible.builtin.get_url:
+            url: "https://packages.clickhouse.com/rpm/lts/clickhouse-common-static-{{ clickhouse_version }}.x86_64.rpm"
+            dest: "./clickhouse-common-static-{{ clickhouse_version }}.rpm"
+    - name: Install clickhouse packages
+      become: true
+      ansible.builtin.yum:
+        name:
+          - clickhouse-client-{{ clickhouse_version }}.rpm
+          - clickhouse-server-{{ clickhouse_version }}.rpm
+          - clickhouse-common-static-{{ clickhouse_version }}.rpm
+      notify: Start clickhouse service
+    - name: Start ClickHouse service
+      ansible.builtin.systemd:
+        name: clickhouse-server
+        state: restarted
+        enabled: yes
+        daemon_reload: yes
+      async: 300
+      poll: 5
+    - name: Wait for ClickHouse native port 9000
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: 9000
+        delay: 5
+        timeout: 300
+        state: started
+
+    - name: Wait for ClickHouse HTTP port 8123
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: 8123
+        delay: 5
+        timeout: 300
+        state: started
+
+    - name: Wait until ClickHouse responds to queries
+      ansible.builtin.command: "clickhouse-client -q 'SELECT 1'"
+      register: ch_ready
+      until: ch_ready.rc == 0
+      retries: 30
+      delay: 10
+      changed_when: false
+      failed_when: false
+
+    - name: Fail if ClickHouse never became ready
+      ansible.builtin.fail:
+        msg: "ClickHouse не запустился за 5 минут. Логи: journalctl -u clickhouse-server -n 100"
+      when: ch_ready.rc != 0
+    - name: Wait 10 seconds before next task
+      ansible.builtin.pause:
+        seconds: 10
+    - name: Create database
+      ansible.builtin.command: "clickhouse-client -q 'create database logs;'"
+      register: create_db
+      failed_when: create_db.rc != 0 and create_db.rc !=82
+      changed_when: create_db.rc == 0
+      async: 300
+      poll:   5
+
+- name: Install and configure Vector
+  hosts: clickhouse
+  become: true
+  become_user: root
+
+  handlers:
+    - name: Restart vector service
+      ansible.builtin.systemd:
+        name: vector
+        state: restarted
+        daemon_reload: yes
+  tasks:
+    - name: Install Vector from official script
+      ansible.builtin.shell: bash -c "$(curl -L https://setup.vector.dev)"
+      args:
+        creates: /usr/bin/vector
+    - name: Ensure vector user exists
+      ansible.builtin.user:
+        name: vector
+        system: yes
+        shell: /sbin/nologin
+        create_home: no
+    - name: Create Vector directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: vector
+        group: vector
+        mode: '0755'
+      loop:
+        - /etc/vector
+        - /var/lib/vector
+    - name: Deploy Vector configuration from template
+      ansible.builtin.template:
+        src: vector.toml.j2
+        dest: /etc/vector/vector.toml
+        owner: vector
+        group: vector
+        mode: '0644'
+      notify: Restart vector service
+    - name: Create systemd unit for Vector
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/vector.service
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Vector
+          Documentation=https://vector.dev
+          After=network-online.target
+          Requires=network-online.target
+
+          [Service]
+          User=vector
+          Group=vector
+          ExecStartPre=/usr/bin/vector validate --config-toml /etc/vector/vector.toml
+          ExecStart=/usr/bin/vector --config /etc/vector/vector.toml
+          Restart=always
+          RestartSec=10
+          Environment=VECTOR_LOG=info
+
+          [Install]
+          WantedBy=multi-user.target
+      notify: Restart vector service
+    - name: Flush handlers
+      ansible.builtin.meta: flush_handlers
+    - name: Wait 10 seconds before next task
+      ansible.builtin.pause:
+        seconds: 10
+    - name: Ensure Vector is running
+      ansible.builtin.systemd:
+        name: vector
+        state: started
+        enabled: yes
+        daemon_reload:  yes
+      async:  300
+      poll:   5

@@ -1,0 +1,8 @@
+---
+clickhouse_version: "22.3.3.44"
+clickhouse_packages:
+  - clickhouse-client
+  - clickhouse-server
+  - clickhouse-common-static
+vector_config_path: "/etc/vector/vector.toml"
+vector_log_interval: 1

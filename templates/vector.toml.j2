@@ -1,0 +1,18 @@
+jinja2
+data_dir = "/var/lib/vector/"
+
+[sources.demo_logs]
+type = "demo_logs"
+format = "json"
+interval = 1
+
+[sinks.clickhouse]
+type = "clickhouse"
+inputs = ["demo_logs"]
+endpoint = "http://localhost:8123"
+database = "logs"
+table = "logs_table"
+skip_unknown_fields = true
+auth.strategy = "basic"
+auth.user = "default"
+auth.password = ""
