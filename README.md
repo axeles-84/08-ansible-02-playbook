@@ -47,11 +47,11 @@ Playbook предназначен для развёртывания стека �
 | CentOS | 7 | Целевая ОС (GLIBC 2.17) |
 | ClickHouse | `22.3.3.44` (LTS) | СУБД |
 | Vector | `0.31.0` | Агент логов |
-| Python | ≥ 3.6 | На управляемом хосте |
+
 
 ### Требования к ВМ
 
-- 2 vCPU, **минимум 2 ГБ RAM** (ClickHouse требователен к памяти)
+- 2 vCPU,  4 ГБ RAM** 
 - Открытые порты: `22` (SSH), `8123` (ClickHouse HTTP), `9000` (ClickHouse native)
 - Пользователь с `sudo` без пароля
 
@@ -65,7 +65,7 @@ ansible-project/
 ├── inventory/
 │   └── prod.yml                   # Инвентарь
 ├── group_vars/
-│   └── clickhouse.yml             # Переменные
+│   └── clickhouse/vars.yml             # Переменные
 └── templates/
     └── vector.toml.j2             # Jinja2-шаблон конфига Vector
 ```
@@ -82,16 +82,15 @@ all:
     clickhouse:
       hosts:
         clickhouse-01:
-          ansible_host: 62.84.113.211
+          ansible_host: адресс хоста
           ansible_user: centos
-          ansible_ssh_private_key_file: ~/.ssh/id_ed25519
+          
 ```
 
 | Параметр | Описание |
 |----------|----------|
 | `ansible_host` | IP-адрес или доменное имя ВМ |
 | `ansible_user` | Пользователь для SSH |
-| `ansible_ssh_private_key_file` | Путь к приватному ключу |
 
 ---
 
@@ -113,8 +112,7 @@ clickhouse_table: logs_table
 # Vector
 vector_version: "0.31.0"
 vector_config_dir: "{{ ansible_user_dir }}/vector_config"
-vector_config_path: "/etc/vector/vector.toml"
-vector_log_interval: 1
+vector_config:
 
 # Подключение Vector → ClickHouse
 clickhouse_host: localhost
@@ -129,9 +127,7 @@ clickhouse_password: ""
 | `clickhouse_table` | Имя таблицы для логов |
 | `vector_version` | Версия Vector |
 | `vector_config_dir` | Директория конфигов |
-| `vector_config_path` | Полный путь к конфигу |
-| `vector_log_interval` | Интервал demo-логов (сек) |
-| `clickhouse_host` | Адрес ClickHouse для Vector |
+
 
 ---
 
@@ -226,8 +222,6 @@ clickhouse_password: ""
     ENGINE = MergeTree() ORDER BY timestamp;"
 ```
 
-> ⚠️ **Важно:** Тип `timestamp` — **`String`**, а не `DateTime`. Vector отправляет ISO8601 с наносекундами, который `DateTime` не парсит.
-
 ---
 
 ## 📦 Play 2: Install Vector
@@ -302,7 +296,6 @@ handlers:
 **Файл:** `templates/vector.toml.j2`
 
 ```jinja2
-# {{ ansible_managed }}
 data_dir = "/var/lib/vector/"
 
 [api]
@@ -312,30 +305,31 @@ address = "127.0.0.1:8686"
 [sources.demo_logs]
 type = "demo_logs"
 format = "json"
-interval = {{ vector_log_interval }}
+interval = 1
 
 [sinks.clickhouse]
 type = "clickhouse"
 inputs = ["demo_logs"]
-endpoint = "http://{{ clickhouse_host }}:8123"
-database = "{{ clickhouse_database }}"
-table = "{{ clickhouse_table }}"
+endpoint = "http://localhost:8123"
+database = "logs"
+table = "logs_table"
 skip_unknown_fields = true
 auth.strategy = "basic"
-auth.user = "{{ clickhouse_user }}"
-auth.password = "{{ clickhouse_password }}"
+auth.user = "default"
+auth.password = ""
 
 [sinks.stdout]
 type = "console"
 inputs = ["demo_logs"]
 encoding.codec = "json"
+
 ```
 
 ### Ключевые параметры
 
 | Параметр | Значение | Пояснение |
 |----------|----------|-----------|
-| `endpoint` | `http://localhost:8123` | **HTTP-порт**, не 9000 |
+| `endpoint` | `http://localhost:8123` |
 | `skip_unknown_fields` | `true` | Пропуск лишних полей |
 | `auth.strategy` | `basic` | Basic Auth для ClickHouse |
 | `[api]` | `127.0.0.1:8686` | API для health-check |
@@ -410,115 +404,8 @@ sudo journalctl -u vector -n 20 --no-pager
 # 6. API Vector
 curl -s http://localhost:8686/health
 ```
-
-### Идемпотентность
-
-Повторный запуск должен дать `changed=0`:
-
-```bash
-ansible-playbook -i inventory/prod.yml site.yml
-# clickhouse-01 : ok=X  changed=0  failed=0
-```
-
 ---
 
-## 🔧 Диагностика проблем
 
-### ClickHouse
-
-| Симптом | Причина | Решение |
-|---------|---------|---------|
-| `Connection refused (9000)` | Сервис не готов | `wait_for` + `until SELECT 1` |
-| `Job timed out` | Первый старт долгий | `async: 300` |
-| Сервис падает | Мало RAM | Увеличить ВМ до 4 ГБ |
-| `Permissions denied /var/lib/clickhouse` | Неверный владелец | `chown -R clickhouse:clickhouse /var/lib/clickhouse` |
-
-### Vector
-
-| Симптом | Причина | Решение |
-|---------|---------|---------|
-| `Unit vector.service not found` | Юнит не создан | Создать `/etc/systemd/system/vector.service` |
-| `203/EXEC` | Не найден бинарник | Проверить `/usr/bin/vector` |
-| `Job failed` | Ошибка конфига | `vector validate --config-toml /etc/vector/vector.toml` |
-| `Permission denied /var/lib/vector` | Нет прав | `chown -R vector:vector /var/lib/vector` |
-
-### Данные в ClickHouse
-
-| Ошибка | Причина | Решение |
-|--------|---------|---------|
-| `Unknown field` | Лишние поля | `skip_unknown_fields = true` |
-| `Table doesn't exist` | Таблицы нет | Создать `logs.logs_table` |
-| `400 Bad Request` | Формат `timestamp` | Использовать `String` вместо `DateTime` |
-| `Connection refused` | ClickHouse не запущен | `systemctl start clickhouse-server` |
-| `Authentication failed` | Неверные креды | Проверить `auth.user` / `auth.password` |
-
----
-
-## 🔄 Совместимость версий
-
-| Компонент | Версия | GLIBC | CentOS 7 |
-|-----------|--------|-------|----------|
-| ClickHouse | 22.3.3.44 (LTS) | 2.17 | ✅ |
-| Vector | 0.31.0 | 2.17 | ✅ |
-| Vector | 0.34.2 | 2.17 | ✅ Последняя совместимая |
-| Vector | 0.35.0+ | 2.28+ | ❌ Не работает |
-
-**Проверка GLIBC:**
-
-```bash
-ldd --version | head -1
-# ldd (GNU libc) 2.17
-```
-
----
-
-## 📐 Ключевые правила
-
-### Отступы YAML
-
-| Уровень | Отступ |
-|---------|--------|
-| Play | 0 |
-| `hosts:`, `become:`, `tasks:`, `handlers:` | 2 |
-| Задача `- name:` | 4 |
-| Модуль `ansible.builtin.X:` | 6 |
-| Параметр модуля | 8 |
-| **Директивы задачи** (`async`, `poll`, `notify`, `when`, `register`) | **6** |
-
-### Идемпотентность
-
-- Использовать `CREATE ... IF NOT EXISTS`
-- `CREATE DATABASE` → `failed_when: rc != 0 and rc != 82` (82 = «уже существует»)
-- `changed_when: false` для проверочных команд
-
-### `flush_handlers`
-
-Вызывается **после** уведомляющих задач и **перед** задачами, которые зависят от перезапуска сервиса.
-
----
-
-## 📚 Ссылки
-
-- [Ansible Documentation](https://docs.ansible.com/)
-- [ClickHouse Docs](https://clickhouse.com/docs/)
-- [Vector Docs](https://vector.dev/docs/)
-- [Ansible systemd module](https://docs.ansible.com/ansible/latest/collections/ansible/builtin/systemd_module.html)
-- [Ansible yum module](https://docs.ansible.com/ansible/latest/collections/ansible/builtin/yum_module.html)
-
----
-
-## 📜 Лицензия
-
-Проект распространяется под лицензией **MIT**. Подробнее см. в файле [LICENSE](LICENSE).
-
----
-
-## 🕒 История версий документа
-
-| Версия | Дата | Изменения |
-|--------|------|-----------|
-| 1.0 | 2026-09-17 | Первая версия документации |
-
----
 
 <div align="center">
