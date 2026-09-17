@@ -388,8 +388,7 @@ clickhouse-client -q "SELECT count() FROM logs.logs_table;"
 # 5. Логи Vector
 sudo journalctl -u vector -n 20 --no-pager
 
-# 6. API Vector
-curl -s http://localhost:8686/health
+
 ```
 ---
 
