@@ -319,7 +319,7 @@ encoding.codec = "json"
 | `endpoint` | `http://localhost:8123` |
 | `skip_unknown_fields` | `true` | Пропуск лишних полей |
 | `auth.strategy` | `basic` | Basic Auth для ClickHouse |
-| `[api]` | `127.0.0.1:8686` | API для health-check |
+
 
 ---
 
