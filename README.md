@@ -96,28 +96,19 @@ clickhouse:
 
 ## ⚙️ Переменные
 
-**Файл:** `group_vars/clickhouse.yml`
+**Файл:** `group_vars/clickhouse/vars.yml`
 
 ```yaml
 ---
-# ClickHouse
-clickhouse_version: "22.3.3.44"
+lickhouse_version: "22.3.3.44"
 clickhouse_packages:
   - clickhouse-client
   - clickhouse-server
   - clickhouse-common-static
-clickhouse_database: logs
-clickhouse_table: logs_table
-
-# Vector
 vector_version: "0.31.0"
 vector_config_dir: "{{ ansible_user_dir }}/vector_config"
 vector_config:
 
-# Подключение Vector → ClickHouse
-clickhouse_host: localhost
-clickhouse_user: default
-clickhouse_password: ""
 ```
 
 | Переменная | Назначение |
