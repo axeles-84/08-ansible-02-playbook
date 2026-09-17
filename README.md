@@ -394,11 +394,13 @@ sudo journalctl -u vector -n 20 --no-pager
 ---
 ### Ответы на вопросы
 
-# 1.Запуск с ключом Check
+# 1.Запуск с ключом Check/
 ![Image alt](https://github.com/axeles-84/08-ansible-02-playbook/blob/main/images/check.PNG)
 
+# 2.Запуск с ключом Diff.
+![Image alt](https://github.com/axeles-84/08-ansible-02-playbook/blob/main/images/diff.PNG)
 
-
-
+# 3.Запуск с ключом Diff повторно.
+![Image alt](https://github.com/axeles-84/08-ansible-02-playbook/blob/main/images/diff1.PNG)
 
 <div align="center">
