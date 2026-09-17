@@ -25,3 +25,13 @@ Play 2: Install Vector
 Совместимость версий
 
 Ключевые правила
+
+
+ansible-project/
+├── site.yml                       # Основной playbook (2 play)
+├── inventory/
+│   └── prod.yml                   # Инвентарь
+├── group_vars/
+│   └── clickhouse.yml             # Переменные
+└── templates/
+    └── vector.toml.j2             # Jinja2-шаблон конфига Vector
