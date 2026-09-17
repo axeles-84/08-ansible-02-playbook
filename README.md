@@ -214,7 +214,7 @@ vector_config:
 
 ---
 
-## 📦 Play 2: Install Vector
+## Play 2: Install Vector
 
 ### Параметры play
 
@@ -281,7 +281,7 @@ handlers:
 
 ---
 
-## 📄 Шаблон конфигурации Vector
+## Шаблон конфигурации Vector
 
 **Файл:** `templates/vector.toml.j2`
 
@@ -326,7 +326,7 @@ encoding.codec = "json"
 
 ---
 
-## 🚀 Запуск Playbook
+## Запуск Playbook
 
 ### Полный запуск
 
@@ -360,7 +360,7 @@ ansible-playbook -i inventory/prod.yml site.yml --start-at-task="Get vector dist
 
 ---
 
-## ✅ Проверка результата
+## Проверка результата
 
 ### На хосте
 
