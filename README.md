@@ -83,10 +83,7 @@ clickhouse:
       ansible_host: ip хоста
       ansible_user: centos
 
-
-## 🌐 Переменные       
-
-
+     
 | Параметр | Описание |
 |----------|----------|
 | `ansible_host` | IP-адрес или доменное имя ВМ |
