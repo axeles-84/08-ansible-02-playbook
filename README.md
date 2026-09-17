@@ -95,6 +95,7 @@ clickhouse:
 
 ## ⚙️ Переменные
 
+
 **Файл:** `group_vars/clickhouse/vars.yml`
 
 ```yaml
