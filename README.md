@@ -77,13 +77,13 @@ ansible-project/
 **Файл:** `inventory/prod.yml`
 
 ```yaml
-all:
-  children:
-    clickhouse:
-      hosts:
-        clickhouse-01:
-          ansible_host: адресс хоста
-          ansible_user: centos
+clickhouse:
+  hosts:
+    clickhouse-01:
+      ansible_host: ip хоста
+      ansible_user: centos
+
+
           
 ```
 
