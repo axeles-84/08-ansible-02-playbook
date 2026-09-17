@@ -1,5 +1,11 @@
-jinja2
+#jinja2
+# {{ ansible_managed }}
+# {{ ansible_managed }}
 data_dir = "/var/lib/vector/"
+
+[api]
+enabled = true
+address = "127.0.0.1:8686"
 
 [sources.demo_logs]
 type = "demo_logs"
@@ -16,3 +22,8 @@ skip_unknown_fields = true
 auth.strategy = "basic"
 auth.user = "default"
 auth.password = ""
+
+[sinks.stdout]
+type = "console"
+inputs = ["demo_logs"]
+encoding.codec = "json"

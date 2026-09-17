@@ -4,5 +4,6 @@ clickhouse_packages:
   - clickhouse-client
   - clickhouse-server
   - clickhouse-common-static
-vector_config_path: "/etc/vector/vector.toml"
-vector_log_interval: 1
+vector_version: "0.31.0"
+vector_config_dir: "{{ ansible_user_dir }}/vector_config"
+vector_config:
