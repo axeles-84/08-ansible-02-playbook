@@ -45,8 +45,7 @@
         state: restarted
         enabled: yes
         daemon_reload: yes
-      async: 300
-      poll: 5
+      
 
     - name: Wait until ClickHouse responds to queries
       ansible.builtin.command: "clickhouse-client -q 'SELECT 1'"

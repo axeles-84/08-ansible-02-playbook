@@ -2,6 +2,6 @@
 clickhouse:
   hosts:
     clickhouse-01:
-      ansible_host: 111.88.244.25
+      ansible_host: 89.169.143.75
       ansible_user: centos
 
