@@ -93,7 +93,7 @@ clickhouse:
 
 ---
 
-## 🌐 Переменные
+## ⚙️ Переменные
 
 **Файл:** `group_vars/clickhouse/vars.yml`
 
